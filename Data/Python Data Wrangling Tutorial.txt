@@ -1,0 +1,556 @@
+58SHARESShareGoogleLinkedinTweet
+            
+                
+            Bitcoin and cryptocurrency have been all the rage but as data scientists, were empiricists, right? We dont want to just take others word for it we want to look at the data firsthand! In this tutorial, well introduce common and powerful techniques for data wrangling in Python.
+Broadly speaking, data wrangling is the process of reshaping, aggregating, separating, or otherwise transforming your data from one format to a more useful one.
+For example,. lets say we wanted to run a step-forward analysis of a very rudimentary momentum trading strategy that goes as follows:
+
+At the start of every month, we buy the cryptocurrency that had the largest price gain over the previous 7, 14, 21, or 28 days. We want to evaluate each of these time windows.
+Then, we hold for exactly 7 days and sell our position.Please note: this is a purposefully simple strategy that is only meant for illustrative purposes.
+
+How well would we go about evaluating this strategy?
+This is a great question for showcasing data wrangling techniques because all the hard work lies in molding your dataset into the proper format. Once you have the appropriate analytical base table (ABT), answering the question becomes simple.
+What this guide is not:
+This is not a guide about investment or trading strategies, nor is it an endorsement for or against cryptocurrency. Potential investors should form their own views independently, but this guide will introduce tools for doing so.
+Again, the focus of this tutorial is on data wrangling techniques and the ability to transform raw datasets into formats that help you answer interesting questions.
+A quick tip before we begin:
+This tutorial is designed to bestreamlined, and it wont cover anyone topic in too muchdetail. It may be helpful to have thePandas library documentationopen beside youas a supplementalreference.
+Python Data Wrangling Tutorial Contents
+Here are the steps well take for our analysis:
+
+Set up your environment.
+Import libraries and dataset.
+Understand the data.
+Filter unwanted observations.
+Pivot the dataset.
+Shift the pivoted dataset.
+Melt the shifted dataset.
+Reduce-merge the melted data.
+Aggregate with group-by.
+
+
+Step 1: Set up your environment.
+First, make sure you have the following installed on your computer:
+
+Python 2.7+ or Python 3
+Pandas
+Jupyter Notebook (optional, but recommended)
+
+We strongly recommend installing the Anaconda Distribution, which comes with all of those packages. Simply follow the instructions on that download page.
+Once you have Anaconda installed, simply startJupyter (either through the command line or the Navigator app) and open a new notebook:
+
+                
+            
+Python 3 or Python 2.7+ are both fine.
+Step 2: Import libraries and dataset.
+Let's start by importing Pandas, the best Python library for wrangling relational (i.e. table-format) datasets. Pandas will be doing most of the heavy lifting for this tutorial.
+
+Tip:we'll give Pandas analias. Later,we can invoke the library with 
+			pd.
+
+
+		
+		
+			Pandas
+			Python
+			
+			
+			
+				
+					
+				
+					12
+				
+						# Pandas for managing datasetsimport pandas as pd
+					
+				
+			
+		Next, let's tweak the display options a bit. First, let's display floats with 2 decimal places to make tables less crowded. Don't worry... this is only a display setting that doesn't reduce the underlying precision. Let's also expand the limits for the number of rows and columns displayed.
+		
+		
+			Pandas display settings
+			Python
+			
+			
+			
+				
+					
+				
+					123456
+				
+						# Display floats with 2 decimal placespd.options.display.float_format = '{:,.2f}'.format# Expand display limitspd.options.display.max_rows = 200pd.options.display.max_columns = 100
+					
+				
+			
+		For this tutorial, we'll be using a price dataset managed by Brave New Coin and distributed on Quandl. The full version tracks price indices for 1,900+ fiat-crypto trading pairs, but it requires a premium subscription, so we've provided a small sample with a handful of cryptocurrencies.
+To follow along, you can download BNC2_sample.csv. Clicking that link will take you to Google Drive, and then simply click the download icon in the top right:
+
+                
+            
+Once you've downloaded the dataset and put in the same file directory as your Jupyter notebook, you can run the following code to read the dataset into a Pandas dataframe and display example observations.
+		
+		
+			Read sample dataset
+			Python
+			
+			
+			
+				
+					
+				
+					1234567
+				
+						# Read BNC2 sample datasetdf = pd.read_csv('BNC2_sample.csv', names=['Code', 'Date', 'Open', 'High', 'Low', 'Close', 'Volume', 'VWAP', 'TWAP'])# Display first 5 observationsdf.head()
+					
+				
+			
+		
+            
+Note that we use the
+			names=argument for
+			pd.read_csv()to set our own column names because the original dataset does not have any.
+Data Dictionary (for codeGWA_BTC):
+
+Date:The day on which the index values were calculated.
+Open:The day's opening price index for Bitcoin in US dollars.
+High:The highest value for the price index for Bitcoin in US dollars that day.
+Low:The lowest value for the price index for Bitcoin in US dollars that day.
+Close:The day's closing price index for Bitcoin in US dollars.
+Volume:The volume of Bitcoin traded that day.
+VWAP:The volume weighted average price of Bitcoin traded that day.
+TWAP:The time-weighted average price of Bitcoin traded that day.
+
+Step 3: Understand the data.
+One of the most common reasons to wrangle data is when there's "too much" information packed into a single table, especially when dealing with time series data.
+Generally, all observations should be equivalent in granularity and inunits.
+There will be exceptions, but for the most part, this rule of thumb can save you from many headaches.
+
+Equivalence in Granularity -For example, you could have 10 rows of data from 10 different cryptocurrencies. However, you shouldnothave an 11th row with average or total values from the other 10 rows. That 11th row would be an aggregation, and thus not equivalent in granularity to the other 10.
+Equivalence in Units - You could have 10 rows with prices in USD collected at different dates. However, you shouldnotthen have another 10 rows with prices quoted in EUR. Any aggregations, distributions, visualizations, or statistics would become meaningless.
+
+Our current raw dataset breaks both of these rules!
+Data stored in CSV files or databases are often in stacked or record format. They use a single
+			'Code'column as a catch-all for metadata. For example, in the sample dataset, we have the follow codes:
+		
+		
+			Unique codes in the dataset
+			Python
+			
+			
+			
+				
+					
+				
+					123456789
+				
+						# Unique codes in the datasetprint( df.Code.unique() )# ['GWA_BTC' 'GWA_ETH' 'GWA_LTC' 'GWA_XLM' 'GWA_XRP' 'MWA_BTC_CNY'#'MWA_BTC_EUR' 'MWA_BTC_GBP' 'MWA_BTC_JPY' 'MWA_BTC_USD' 'MWA_ETH_CNY'#'MWA_ETH_EUR' 'MWA_ETH_GBP' 'MWA_ETH_JPY' 'MWA_ETH_USD' 'MWA_LTC_CNY'#'MWA_LTC_EUR' 'MWA_LTC_GBP' 'MWA_LTC_JPY' 'MWA_LTC_USD' 'MWA_XLM_CNY'#'MWA_XLM_EUR' 'MWA_XLM_USD' 'MWA_XRP_CNY' 'MWA_XRP_EUR' 'MWA_XRP_GBP'#'MWA_XRP_JPY' 'MWA_XRP_USD']
+					
+				
+			
+		First, see how some codes start with GWA and others with MWA? These are actually completely different types of indicators according to the documentation page.
+
+MWA stands for "market-weighted average," and they show regional prices. There are multiple MWA codes for each cryptocurrency, one for each local fiat currency.
+On the other hand, GWA stands for "global-weighted average," which shows globally indexed prices. GWA is thus an aggregation of MWA and not equivalent in granularity. (Note: only a subset of regional MWA codes are included in the sample dataset.)
+
+For instance, let's look at Bitcoin's codes on the same date:
+		
+		
+			Example of GWA and MWA relationship
+			Python
+			
+			
+			
+				
+					
+				
+					123
+				
+						# Example of GWA and MWA relationshipdf[df.Code.isin(['GWA_BTC', 'MWA_BTC_JPY', 'MWA_BTC_EUR'])  & (df.Date == '2018-01-01')]
+					
+				
+			
+		
+            
+As you can see, we have multiple entries for a cryptocurrency on a given date. To further complicate things, the regional MWA data are denominated in their local currency (i.e. nonequivalent units), so you would also need historical exchange rates.
+Having different levels of granularity and/or different units makes analysis unwieldy at best, or downright impossible at worst.
+Luckily, once we've spotted this issue, fixing it is actually trivial!
+Step 4: Filter unwanted observations.
+One of the simplest yet most useful data wrangling techniques is removing unwanted observations.
+In the previous step, we learned that GWA codes are aggregations of the regional MWA codes. Therefore, to perform our analysis, we only need to keep the global GWA codes:
+		
+		
+			Filter out MWA codes
+			Python
+			
+			
+			
+				
+					
+				
+					12345678910111213
+				
+						# Number of observations in datasetprint( 'Before:', len(df) )# Before: 31761# Get all the GWA codesgwa_codes = [code for code in df.Code.unique() if 'GWA_' in code]# Only keep GWA observationsdf = df[df.Code.isin(gwa_codes)]# Number of observations leftprint( 'After:', len(df) )# After: 6309
+					
+				
+			
+		Now that we only have GWA codes left, all of our observations are equivalent in granularity and in units. We can confidently proceed.
+Step 5: Pivot the dataset.
+Next, in order to analyze our momentum trading strategy outlined above, for each cryptocurrency, we'll need calculate returns over the prior 7, 14, 21, and 28 days... for the first day of each month.
+However, it would be a huge pain to do so with the current "stacked" dataset. It would involve writing helper functions, loops, and plenty of conditional logic. Instead, we'll take a more elegant approach....
+First, we'll pivot the dataset while keeping only one price column. For this tutorial, let's keep theVWAP (volume weighted average price) column, but you could make a good case for most of them.
+		
+		
+			Pivot dataset
+			Python
+			
+			
+			
+				
+					
+				
+					12345
+				
+						# Pivot datasetpivoted_df = df.pivot(index='Date', columns='Code', values='VWAP')# Display examples from pivoted datasetpivoted_df.tail()
+					
+				
+			
+		
+            
+As you can see, each column in our pivoted dataset now represents the price for one cryptocurrency and each row contains prices from one date. All the features are now aligned by date.
+Step 6: Shift the pivoted dataset.
+To easily calculate returns over the prior 7, 14, 21, and 28 days, we can use Pandas's shiftmethod.
+This functionshifts the indexof the dataframe by some number of periods. For example, here's what happens when we shift our pivoted dataset by 1:
+		
+		
+			Shift method
+			Python
+			
+			
+			
+				
+					
+				
+					12345678910111213
+				
+						print( pivoted_df.tail(3) )# Code GWA_BTCGWA_ETHGWA_LTCGWA_XLMGWA_XRP# Date# 2018-01-21 12,326.23 1,108.90 197.36 0.48 1.55# 2018-01-22 11,397.52 1,038.21 184.92 0.47 1.43# 2018-01-23 10,921.00 992.05 176.95 0.47 1.42print( pivoted_df.tail(3).shift(1) )# Code GWA_BTCGWA_ETHGWA_LTCGWA_XLMGWA_XRP# Date# 2018-01-21 nannannannannan# 2018-01-22 12,326.23 1,108.90 197.36 0.48 1.55# 2018-01-23 11,397.52 1,038.21 184.92 0.47 1.43
+					
+				
+			
+		Notice how the shifted dataset now has values from 1 day before? We can take advantage of this to calculate prior returns for our 7, 14, 21, 28 day windows.
+For example, to calculate returns over the 7 days prior, we would need
+			prices_today / prices_7_days_ago - 1.0, which translates to:
+		
+		
+			Calculate returns over 7 days prior
+			Python
+			
+			
+			
+				
+					
+				
+					12345
+				
+						# Calculate returns over 7 days priordelta_7 = pivoted_df / pivoted_df.shift(7) - 1.0# Display examplesdelta_7.tail()
+					
+				
+			
+		
+            
+Calculating returns for all of our windows is as easy as writing a loop and storing them in a dictionary:
+		
+		
+			Loop over time windows
+			Python
+			
+			
+			
+				
+					
+				
+					1234
+				
+						# Calculate returns over each window and store them in dictionarydelta_dict = {}for offset in [7, 14, 21, 28]:delta_dict['delta_{}'.format(offset)] = pivoted_df / pivoted_df.shift(offset) - 1.0
+					
+				
+			
+		Note: Calculating returns by shifting the dataset requires 2 assumptions to be met: (1) the observations are sorted ascending by date and (2) there are no missing dates. We checked this "off-stage" to keep this tutorial concise, but we recommend confirming this on your own.
+Step 7: Melt the shifted dataset.
+Now that we've calculated returns using the pivoted dataset, we're going to "unpivot" the returns. By unpivoting, ormeltingthe data, we can later create an analytical base table (ABT)where each row contains all of the relevant information for a particular coin on a particular date.
+We couldn't directly shift the original dataset because the data for different coins were stacked on each other, so the boundaries would've overlapped. In other words, BTC data would leak into ETH calculations, ETH data would leak into LTC calculations, and so on.
+To melt the data, we'll...
+
+
+			reset_index()so we can call the columns by name.
+Call the
+			melt()method.
+Pass the column(s) to keep into the
+			id_vars=argument.
+Name the melted column using the
+			value_name=argument.
+
+Here's how that looks for one dataframe:
+		
+		
+			Melt shifted data
+			Python
+			
+			
+			
+				
+					
+				
+					12345
+				
+						# Melt delta_7 returnsmelted_7 = delta_7.reset_index().melt(id_vars=['Date'], value_name='delta_7')# Melted dataframe examplesmelted_7.tail()
+					
+				
+			
+		
+            
+To do so for all of the returns dataframes, we can simply loop through
+			delta_dict, like so:
+		
+		
+			# Melt all the delta dataframes
+			Python
+			
+			
+			
+				
+					
+				
+					1234
+				
+						# Melt all the delta dataframes and store in listmelted_dfs = []for key, delta_df in delta_dict.items():melted_dfs.append( delta_df.reset_index().melt(id_vars=['Date'], value_name=key) )
+					
+				
+			
+		Finally, we can create another melted dataframe that contains the forward-looking 7-day returns. This will be our "target variable" for evaluating our trading strategy.
+Simply shift the pivoted dataset by 
+			-7 to get "future" prices, like so:
+		
+		
+			Calculate forward-looking 7-day returns
+			Python
+			
+			
+			
+				
+					
+				
+					12345
+				
+						# Calculate 7-day returns after the datereturn_df = pivoted_df.shift(-7) / pivoted_df - 1.0# Melt the return dataset and append to listmelted_dfs.append( return_df.reset_index().melt(id_vars=['Date'], value_name='return_7') )
+					
+				
+			
+		We now have 5 melted dataframes stored in the
+			melted_dfslist, one for each of the backward-looking 7, 14, 21, and 28-day returns and one for the forward-looking 7-day returns.
+Step 8: Reduce-merge the melted data.
+All that's left to do is join our melted dataframes into a single analytical base table. We'll need two tools.
+The first is Pandas's merge function, which works like SQL JOIN. For example, to merge the first two melted dataframes...
+		
+		
+			Merge two dataframes
+			Python
+			
+			
+			
+				
+					
+				
+					12
+				
+						# Merge two dataframespd.merge(melted_dfs[0], melted_dfs[1], on=['Date', 'Code']).tail()
+					
+				
+			
+		
+            
+See how we now havedelta_7 anddelta_14 in the same row? This is the start of our analytical base table. All we need to do now is merge all of our melted dataframes together with a base dataframe of other features we might want.
+The most elegant way to do this is using Python's built-inreduce function. First we'll need to import it:
+		
+		
+			Import reduce function
+			Python
+			
+			
+			
+				
+					
+				
+					1
+				
+						from functools import reduce
+					
+				
+			
+		Next, before we use that function, let's create a
+			feature_dfslist that contains base features from the original dataset plus the melted datasets.
+		
+		
+			Create feature_dfs list
+			Python
+			
+			
+			
+				
+					
+				
+					12345
+				
+						# Grab features from original datasetbase_df = df[['Date', 'Code', 'Volume', 'VWAP']]# Create a list with all the feature dataframesfeature_dfs = [base_df] + melted_dfs
+					
+				
+			
+		Now we're ready to use the reduce function. Reduce applies a function of two arguments cumulatively to the objects in a sequence (e.g. a list). For example,
+			reduce(lambda x,y: x+y, [1,2,3,4,5])calculates
+			((((1+2)+3)+4)+5).
+Thus, we can reduce-merge all of the features like so:
+		
+		
+			Reduce-merge features into ABT
+			Python
+			
+			
+			
+				
+					
+				
+					12345
+				
+						# Reduce-merge features into analytical base tableabt = reduce(lambda left,right: pd.merge(left,right,on=['Date', 'Code']), feature_dfs)# Display examples from the ABTabt.tail(10)
+					
+				
+			
+		
+            
+Data Dictionary for our Analytical Base Table (ABT):
+
+Date:The day on which the index values were calculated.
+Code:Which cryptocurrency.
+VWAP:The volume weighted average price traded that day.
+delta_7:Return over the prior 7 days (1.0 = 100% return).
+delta_14:Return over the prior 14 days (1.0 = 100% return).
+delta_21:Return over the prior 21 days (1.0 = 100% return).
+delta_28:Return over the prior 28 days (1.0 = 100% return).
+return_7:Future return over the next 7 days (1.0 = 100% return).
+
+By the way, notice how the last 7 observations don't have values for the
+			'return_7'feature? This is expected, as we cannot calculate "future 7-day returns" for the last 7 days of the dataset.
+Technically, with this ABT, we can already answer our original objective. For example, if we wanted to pick the coin that had the biggest momentum on September 1st, 2017, we could simply display the rows for that date and look at the 7, 14, 21, and 28-day prior returns:
+		
+		
+			# Data from Sept 1st, 2017
+			Python
+			
+			
+			
+				
+					
+				
+					12
+				
+						# Data from Sept 1st, 2017abt[abt.Date == '2017-09-01']
+					
+				
+			
+		
+            
+And if you wanted to programmatically pick the crypto with the biggest momentum (e.g. over the prior 28 days), you would write:
+		
+		
+			Programmatically pick highest momentum
+			Python
+			
+			
+			
+				
+					
+				
+					12345
+				
+						max_momentum_id = abt[abt.Date == '2017-09-01'].delta_28.idxmax()daily_df.loc[max_momentum_id, ['Code','return_7']]# CodeGWA_LTC# return_7-0.10# Name: 3543, dtype: object
+					
+				
+			
+		However, since we're only interested in trading on the first day of each month, we can make things even easier for ourselves...
+Step 9: (Optional) Aggregate with group-by.
+As a final step, if we wanted to only keep the first days of each month, we can use agroup-byfollowed by an aggregation.
+
+First, create a new 
+			'month' feature from the first 7 characters of the Date strings.
+Then, group the observations by
+			'Code'and by
+			'month'. Pandas will create "cells" of data that separate observations by Code and month.
+Finally, within each group, simply take the
+			.first()observation and reset the index.
+
+Note: We're assuming your dataframe is still properly sorted by date.
+Here's what it looks like all put together:
+		
+		
+			Aggregate with group-by
+			Python
+			
+			
+			
+				
+					
+				
+					12345678
+				
+						# Create 'month' featureabt['month'] = abt.Date.apply(lambda x: x[:7])# Group by 'Code' and 'month' and keep first dategb_df = abt.groupby(['Code', 'month']).first().reset_index()# Display examplesgb_df.tail()
+					
+				
+			
+		
+            
+As you can see, we now have a proper ABT with:
+
+Only relevant data from the 1st day of each month.
+Momentum features calculated from the prior 7, 14, 21, and 28 days.
+The future returns you would've made 7 days later.
+
+In other words, we have exactly what we need to evaluate the simple trading strategy we proposed at the beginning!
+
+Congratulations... you've made it to the end of this Python data wrangling tutorial!
+We introduced several key tools for filtering, manipulating, and transforming datasets in Python, but we've only scratched the surface. Pandas is a very powerful library with plenty of additional functionality.
+For continued learning, we recommend downloading more datasetsfor hands-on practice. Propose an interesting question, plan your approach, and fall back on documentation for help.
+We also provide over-the-shoulder guidance in our popular Machine Learning Masterclass.It's a hands-on course developed completely in-house... and it's designed take you from 0 to machine learning as smoothly as possible (without the boring lectures).
+The complete code, from start to finish.
+Here'sall the main code in one place, in a single script.
+		
+		
+			Complete script
+			Python
+			
+			
+			
+				
+					
+				
+					1234567891011121314151617181920212223242526272829303132333435363738394041
+				
+						# 2. Import libraries and datasetimport pandas as pdpd.options.display.float_format = '{:,.2f}'.formatpd.options.display.max_rows = 200pd.options.display.max_columns = 100df = pd.read_csv('BNC2_sample.csv', names=['Code', 'Date', 'Open', 'High', 'Low', 'Close', 'Volume', 'VWAP', 'TWAP'])# 4. Filter unwanted observationsgwa_codes = [code for code in df.Code.unique() if 'GWA_' in code]df = df[df.Code.isin(gwa_codes)]# 5. Pivot the datasetpivoted_df = df.pivot(index='Date', columns='Code', values='VWAP')# 6. Shift the pivoted datasetdelta_dict = {}for offset in [7, 14, 21, 28]:delta_dict['delta_{}'.format(offset)] = pivoted_df / pivoted_df.shift(offset) - 1# 7. Melt the shifted datasetmelted_dfs = []for key, delta_df in delta_dict.items():melted_dfs.append( delta_df.reset_index().melt(id_vars=['Date'], value_name=key) )return_df = pivoted_df.shift(-7) / pivoted_df - 1.0melted_dfs.append( return_df.reset_index().melt(id_vars=['Date'], value_name='return_7') )# 8. Reduce-merge the melted datafrom functools import reducebase_df = df[['Date', 'Code', 'Volume', 'VWAP']]feature_dfs = [base_df] + melted_dfsabt = reduce(lambda left,right: pd.merge(left,right,on=['Date', 'Code']), feature_dfs)# 9. Aggregate with group-by.abt['month'] = abt.Date.apply(lambda x: x[:7])gb_df = abt.groupby(['Code', 'month']).first().reset_index()
+					
+				
+			
+		
+58SHARESShareGoogleLinkedinTweet
+            
+                
+            
+
+
+                
+                    
+                    
+                        
+                             Previous Post
+                            How to Become a Data Scientist, The Self-Starter Way
+                        
+                        
+                            Next Post 
+                            Python for Data Science (Ultimate Quickstart Guide)
